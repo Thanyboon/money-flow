@@ -79,7 +79,7 @@ function renderPage(){let el=$('#page');if(!el)return;const p=state.page;const m
 function homeMonthChanged(v){if(!v)return;homeSelectedMonth=v;localStorage.setItem('mf_home_month',v);renderPage()}
 function dailyMonthRows(m){const [yy,mm]=m.split('-').map(Number),days=new Date(yy,mm,0).getDate(),out=[];for(let d=1;d<=days;d++){const date=`${m}-${String(d).padStart(2,'0')}`,a=rows('Transactions').filter(x=>String(x.date).slice(0,10)===date),inc=a.filter(x=>x.type==='income').reduce((s,x)=>s+Number(x.amount||0),0),exp=a.filter(x=>x.type==='expense').reduce((s,x)=>s+Number(x.amount||0),0);out.push({date,day:d,inc,exp})}return out}
 function homePage(){let m=homeSelectedMonth||monthNow(),t=txTotals(m),all=rows('Transactions').slice().sort((a,b)=>String(b.date).localeCompare(String(a.date))).slice(0,5);let cats={};t.tx.filter(x=>x.type==='expense').forEach(x=>cats[x.categoryId]=(cats[x.categoryId]||0)+Number(x.amount));let top=Object.entries(cats).sort((a,b)=>b[1]-a[1]).slice(0,4);let months=Array.from({length:6},(_,i)=>{let d=new Date();d.setMonth(d.getMonth()-(5-i));let mo=d.toLocaleDateString('en-CA').slice(0,7);let a=rows('Transactions').filter(x=>String(x.date).slice(0,7)===mo);return{m:mo,inc:a.filter(x=>x.type==='income').reduce((s,x)=>s+ +x.amount,0),exp:a.filter(x=>x.type==='expense').reduce((s,x)=>s+ +x.amount,0)}});let max=Math.max(1,...months.flatMap(x=>[x.inc,x.exp]));let daily=dailyMonthRows(m),active=daily;return `<h1 class="title">ภาพรวมการเงิน</h1><section class="panel hero"><div class="muted">ยอดเงินคงเหลือรวมทุกกระเป๋า</div><div class="balance">${fmt(t.bal)}</div><div class="small">ยอดคำนวณจากยอดตั้งต้นและธุรกรรมทั้งหมด</div></section><div class="toolbar" style="align-items:center"><label class="muted">เลือกเดือนที่ต้องการดู</label><input aria-label="เลือกเดือนภาพรวม" type="month" value="${esc(m)}" onchange="homeMonthChanged(this.value)" style="max-width:220px"></div><div class="grid metrics" style="margin-top:12px"><div class="metric"><span class="muted small">รายรับเดือนที่เลือก</span><strong class="positive">${fmt(t.inc)}</strong></div><div class="metric"><span class="muted small">รายจ่ายเดือนที่เลือก</span><strong class="negative">${fmt(t.exp)}</strong></div><div class="metric"><span class="muted small">สุทธิเดือนที่เลือก</span><strong>${fmt(t.inc-t.exp)}</strong></div><div class="metric"><span class="muted small">กระเป๋าเงิน</span><strong>${rows('Wallets').length} บัญชี</strong></div></div><div class="section">รายรับและรายจ่าย 6 เดือน</div><div class="panel"><div class="chart">${months.map(x=>`<div class="chartcol"><i style="height:${x.inc/max*100}%"></i><b style="height:${x.exp/max*100}%"></b></div>`).join('')}</div><div class="labels">${months.map(x=>x.m.slice(5)).map(x=>`<span>${x}</span>`).join('')}</div><div class="small muted" style="margin-top:12px">🟩 รายรับ　🟥 รายจ่าย</div></div><div class="section">สรุปรายวันในเดือนที่เลือก</div><div class="panel"><div class="small muted" style="margin-bottom:10px">แสดงครบทุกวันของเดือน · ${m}</div>${active.length?`<div class="list">${active.map(x=>`<div class="item"><div class="grow"><b>${String(x.day).padStart(2,'0')} ${new Date(x.date+'T12:00:00').toLocaleDateString('th-TH',{month:'short',year:'numeric'})}</b><div class="small muted">รายรับ <span class="positive">${fmt(x.inc)}</span> · รายจ่าย <span class="negative">${fmt(x.exp)}</span></div></div><div style="text-align:right"><b class="${x.inc-x.exp>=0?'positive':'negative'}">${fmt(x.inc-x.exp)}</b><div class="small muted">สุทธิ</div></div></div>`).join('')}</div>`:'<div class="empty">เดือนนี้ยังไม่มีรายรับหรือรายจ่าย</div>'}</div><div class="contentgrid"><div><div class="section">รายการล่าสุด <button class="btn secondary" onclick="go('transactions')">ดูทั้งหมด</button></div><div class="panel">${txList(all)}</div></div><div><div class="section">หมวดหมู่ที่ใช้จ่ายสูง</div><div class="panel">${top.length?top.map(([k,v])=>`<div style="margin:12px 0"><div class="item" style="border:0;padding:2px 0"><span class="grow">${esc(catName(k))}</span><b>${fmt(v)}</b></div><div class="bar"><i style="width:${v/Math.max(1,...top.map(x=>x[1]))*100}%"></i></div></div>`).join(''):'<div class="empty">ยังไม่มีข้อมูลรายจ่ายในเดือนที่เลือก</div>'}</div><div class="section">ทางลัด</div><div class="panel actions"><button class="btn" onclick="txForm('expense')">− รายจ่าย</button><button class="btn" onclick="txForm('income')">＋ รายรับ</button><button class="btn secondary" onclick="walletForm()">＋ กระเป๋า</button></div></div></div>`}
-function txList(list){return list.length?`<div class="list">${list.map(x=>{const tr=x.type==='transfer_out'||x.type==='transfer_in',income=x.type==='income'||x.type==='transfer_in',label=tr?(x.type==='transfer_out'?'โอนเงินออก':'โอนเงินเข้า'):catName(x.categoryId),peer=tr?(x.type==='transfer_out'?'ไปยัง ':'จาก ')+walletName(x.transferPeerWalletId):walletName(x.walletId);return `<div class="item"><div class="bubble">${tr?'⇄':income?'↗':'↘'}</div><div class="grow"><b>${esc(label)}</b><div class="small muted">${esc(x.date)} · ${esc(peer)} ${x.note?'· '+esc(x.note):''}</div></div><div class="amount ${income?'positive':'negative'}">${income?'+':'−'}${fmt(x.amount)}</div>${tr?`<button class="btn danger" onclick="delTransfer('${esc(x.transferId||'')}')">ลบ</button>`:`<button class="btn ghost" onclick="txForm('', '${x.id}')">แก้</button><button class="btn danger" onclick="del('Transactions','${x.id}')">ลบ</button>`}</div>`}).join('')}</div>`:'<div class="empty">ยังไม่มีรายการ</div>'}
+function txList(list){return list.length?`<div class="list">${list.map(x=>{const tr=x.type==='transfer_out'||x.type==='transfer_in',income=x.type==='income'||x.type==='transfer_in',label=tr?(x.type==='transfer_out'?'โอนเงินออก':'โอนเงินเข้า'):catName(x.categoryId),peer=tr?(x.type==='transfer_out'?'ไปยัง ':'จาก ')+walletName(x.transferPeerWalletId):walletName(x.walletId);return `<div class="item"><div class="bubble">${tr?'⇄':income?'↗':'↘'}</div><div class="grow"><b>${esc(label)}</b><div class="small muted">${esc(x.date)} · ${esc(peer)} ${x.note?'· '+esc(x.note):''}</div></div><div class="amount ${income?'positive':'negative'}">${income?'+':'−'}${fmt(x.amount)}</div>${tr?`<button class="btn ghost" onclick="transferForm('${esc(x.transferId||'')}')">แก้</button><button class="btn danger" onclick="delTransfer('${esc(x.transferId||'')}')">ลบ</button>`:`<button class="btn ghost" onclick="txForm('', '${x.id}')">แก้</button><button class="btn danger" onclick="del('Transactions','${x.id}')">ลบ</button>`}</div>`}).join('')}</div>`:'<div class="empty">ยังไม่มีรายการ</div>'}
 function transactionsPage(){let list=rows('Transactions').filter(x=>x.type==='income'||x.type==='expense'||x.type==='transfer_in'||x.type==='transfer_out').slice().sort((a,b)=>String(b.date).localeCompare(String(a.date)));return `<h1 class="title">รายรับ–รายจ่าย</h1><div class="actions"><button class="btn" onclick="txForm('expense')">＋ เพิ่มรายจ่าย</button><button class="btn secondary" onclick="txForm('income')">＋ เพิ่มรายรับ</button><button class="btn ghost" onclick="transferForm()">⇄ โอนระหว่างบัญชี</button><button class="btn ghost" onclick="categoryManager()">⚙️ จัดการหมวดหมู่</button></div><div class="small muted" style="margin:6px 0 12px">โอนออกแสดงเครื่องหมาย − และโอนเข้าแสดงเครื่องหมาย + โดยยอดโอนไม่ถูกรวมในรายรับหรือรายจ่าย</div><div class="toolbar"><input id="txSearch" placeholder="ค้นหาหมายเหตุหรือหมวดหมู่" oninput="filterTx()"><select id="txType" onchange="filterTx()"><option value="">ทุกประเภท</option><option value="income">รายรับ</option><option value="expense">รายจ่าย</option><option value="transfer">โอนระหว่างบัญชี</option></select></div><div class="panel" style="margin-bottom:12px"><b>เลือกช่วงเวลาที่ต้องการดู</b><div class="formgrid"><div class="field"><label>เดือนและปี</label><input id="txMonth" type="month" value="${monthNow()}" onchange="clearTxDate();filterTx()"></div><div class="field"><label>หรือเลือกวันที่เจาะจง</label><input id="txDate" type="date" onchange="filterTx()"></div></div><div class="actions"><button class="btn ghost" onclick="clearTxFilters()">ดูทั้งหมด</button><span class="small muted" id="txRangeLabel">แสดงรายการของเดือนนี้</span></div></div><div class="grid" style="margin-bottom:12px"><div class="metric"><span class="muted small">รายรับในช่วงที่เลือก</span><strong class="positive" id="txIncomeTotal">฿0.00</strong></div><div class="metric"><span class="muted small">รายจ่ายในช่วงที่เลือก</span><strong class="negative" id="txExpenseTotal">฿0.00</strong></div><div class="metric"><span class="muted small">ยอดโอนระหว่างบัญชี</span><strong style="color:#3B82F6" id="txTransferTotal">฿0.00</strong><div class="small muted">นับยอดโอนออกครั้งเดียว ไม่รวมรายรับ/รายจ่าย</div></div></div><div class="panel" id="txResults">${txList(list)}</div>`}
 function clearTxDate(){const d=$('#txDate');if(d)d.value=''}
 function clearTxFilters(){if($('#txSearch'))$('#txSearch').value='';if($('#txType'))$('#txType').value='';if($('#txMonth'))$('#txMonth').value='';if($('#txDate'))$('#txDate').value='';filterTx()}
@@ -100,33 +100,45 @@ function categoryManagerListHtml(cats){return cats.length?`<div class="list">${c
 function categoryManagerRender(){const t=$('#catType').value;$('#categoryManagerList').innerHTML=categoryManagerListHtml(rows('Categories').filter(c=>c.type===t));}
 async function addCategory(e){e.preventDefault();const name=$('#catNewName').value.trim(),type=$('#catType').value;if(!name)return; if(rows('Categories').some(c=>c.type===type&&String(c.name).trim().toLowerCase()===name.toLowerCase()))return toast('มีหมวดหมู่นี้อยู่แล้ว');try{await save('Categories',{id:id(),name,type});categoryManager(type);}catch(x){toast('เพิ่มหมวดหมู่ไม่สำเร็จ: '+x.message)}}
 async function deleteCategory(cid){const c=rows('Categories').find(x=>x.id===cid);if(!c)return;const used=rows('Transactions').some(x=>x.categoryId===cid)||rows('Budgets').some(x=>x.categoryId===cid);if(used)return toast('หมวดหมู่นี้มีธุรกรรมหรืองบประมาณใช้อยู่ กรุณาแก้รายการที่ใช้อยู่ก่อน');if(!confirm(`ยืนยันลบหมวดหมู่ “${c.name}” หรือไม่?`))return;try{const r=await api('mutate',{table:'Categories',op:'delete',id:cid});if(!r.ok)throw Error(r.error||'ลบไม่สำเร็จ');state.data.Categories=rows('Categories').filter(x=>x.id!==cid);localStorage.setItem('mf_cache',JSON.stringify(state.data));categoryManager($('#catType')?.value||c.type);renderPage();toast('ลบหมวดหมู่แล้ว');}catch(x){toast('ลบหมวดหมู่ไม่สำเร็จ: '+x.message)}}
-function transferForm(){
+function transferForm(transferId=''){
+  const existingPair=transferId?rows('Transactions').filter(x=>x.transferId===transferId):[];
+  const oldOut=existingPair.find(x=>x.type==='transfer_out')||{};
+  const oldIn=existingPair.find(x=>x.type==='transfer_in')||{};
   const wallets=rows('Wallets').filter(w=>w.active!==false);
   if(wallets.length<2){toast('ต้องมีกระเป๋าเงินอย่างน้อย 2 บัญชีก่อนโอน');return}
-  openModal('โอนเงินระหว่างบัญชี',`<form onsubmit="submitTransfer(event)">
-    <div class="field"><label>บัญชีต้นทาง (เงินออก)</label><select id="trFrom" required>${wallets.map(w=>`<option value="${esc(w.id)}">${esc(w.name)}</option>`).join('')}</select></div>
-    <div class="field"><label>บัญชีปลายทาง (เงินเข้า)</label><select id="trTo" required>${wallets.map((w,i)=>`<option value="${esc(w.id)}" ${i===1?'selected':''}>${esc(w.name)}</option>`).join('')}</select></div>
-    <div class="field"><label>จำนวนเงินที่โอน (บาท)</label><input id="trAmount" type="number" min="0.01" step="0.01" required placeholder="0.00"></div>
-    <div class="field"><label>วันที่โอน</label><input id="trDate" type="date" value="${today()}" required></div>
-    <div class="field"><label>หมายเหตุ (ไม่บังคับ)</label><input id="trNote" placeholder="เช่น โอนเงินเก็บ"></div>
-    <p class="small muted">ระบบจะหักเงินจากบัญชีต้นทางและเพิ่มเงินในบัญชีปลายทาง โดยไม่นับเป็นรายรับหรือรายจ่าย</p>
-    <button class="btn" type="submit" style="width:100%">ยืนยันการโอน</button></form>`);
+  openModal(transferId?'แก้ไขรายการโอน':'โอนเงินระหว่างบัญชี',`<form onsubmit="submitTransfer(event,'${transferId}')">
+    <div class="field"><label>บัญชีต้นทาง (เงินออก)</label><select id="trFrom" required>${wallets.map(w=>`<option value="${esc(w.id)}" ${w.id===oldOut.walletId?'selected':''}>${esc(w.name)}</option>`).join('')}</select></div>
+    <div class="field"><label>บัญชีปลายทาง (เงินเข้า)</label><select id="trTo" required>${wallets.map((w,i)=>`<option value="${esc(w.id)}" ${w.id===(oldIn.walletId||wallets[1]?.id)?'selected':''}>${esc(w.name)}</option>`).join('')}</select></div>
+    <div class="field"><label>จำนวนเงินที่โอน (บาท)</label><input id="trAmount" type="number" min="0.01" step="0.01" required placeholder="0.00" value="${esc(oldOut.amount||'')}"></div>
+    <div class="field"><label>วันที่โอน</label><input id="trDate" type="date" value="${esc(oldOut.date||today())}" required></div>
+    <div class="field"><label>หมายเหตุ (ไม่บังคับ)</label><input id="trNote" placeholder="เช่น โอนเงินเก็บ" value="${esc(oldOut.note||'')}"></div>
+    <p class="small muted">ระบบจะปรับยอดบัญชีต้นทางและปลายทางพร้อมกัน โดยไม่นับเป็นรายรับหรือรายจ่าย</p>
+    <button class="btn" type="submit" style="width:100%">${transferId?'บันทึกการแก้ไข':'ยืนยันการโอน'}</button></form>`);
 }
-async function submitTransfer(e){
+async function submitTransfer(e,editTransferId=''){
   e.preventDefault();
   const from=$('#trFrom').value,to=$('#trTo').value,amount=Number($('#trAmount').value),date=$('#trDate').value,note=$('#trNote').value.trim();
   if(!from||!to||from===to){toast('กรุณาเลือกบัญชีต้นทางและปลายทางให้ต่างกัน');return}
   if(!Number.isFinite(amount)||amount<=0){toast('กรุณาระบุจำนวนเงินให้ถูกต้อง');return}
-  const transferId=id(),outId=id(),inId=id(),common={amount,date,note,transferId};
+  const oldPair=editTransferId?rows('Transactions').filter(x=>x.transferId===editTransferId):[];
+  const oldOut=oldPair.find(x=>x.type==='transfer_out')||{},oldIn=oldPair.find(x=>x.type==='transfer_in')||{};
+  const transferId=editTransferId||id(),outId=oldOut.id||id(),inId=oldIn.id||id(),common={amount,date,note,transferId};
   const outgoing={...common,id:outId,type:'transfer_out',walletId:from,transferPeerWalletId:to,categoryId:''};
   const incoming={...common,id:inId,type:'transfer_in',walletId:to,transferPeerWalletId:from,categoryId:''};
   const submit=$('#modalBody form button[type="submit"]');if(submit){submit.disabled=true;submit.textContent='กำลังบันทึก…'}
   try{
     await save('Transactions',outgoing,{silent:true});
     try{await save('Transactions',incoming,{silent:true})}
-    catch(err){try{await api('mutate',{table:'Transactions',op:'delete',id:outId})}catch(_){};state.data.Transactions=rows('Transactions').filter(x=>x.id!==outId);localStorage.setItem('mf_cache',JSON.stringify(state.data));throw err}
-    closeModal();renderPage();toast('โอนเงินระหว่างบัญชีเรียบร้อย');
-  }catch(err){if(submit){submit.disabled=false;submit.textContent='ยืนยันการโอน'}toast('บันทึกการโอนไม่สำเร็จ: '+err.message)}
+    catch(err){
+      if(!editTransferId){try{await api('mutate',{table:'Transactions',op:'delete',id:outId})}catch(_){};state.data.Transactions=rows('Transactions').filter(x=>x.id!==outId);localStorage.setItem('mf_cache',JSON.stringify(state.data));}
+      else {
+        try{await api('mutate',{table:'Transactions',op:'upsert',row:JSON.stringify(oldOut)});await api('mutate',{table:'Transactions',op:'upsert',row:JSON.stringify(oldIn)})}catch(rollbackErr){toast('แก้ไขรายการโอนบางส่วนไม่สำเร็จ กรุณาตรวจสอบบัญชีทั้งสองฝั่ง')}
+        state.data.Transactions=rows('Transactions').map(x=>x.id===oldOut.id?oldOut:x.id===oldIn.id?oldIn:x);localStorage.setItem('mf_cache',JSON.stringify(state.data));
+      }
+      throw err;
+    }
+    closeModal();renderPage();toast(editTransferId?'แก้ไขรายการโอนแล้ว':'โอนเงินระหว่างบัญชีเรียบร้อย');
+  }catch(err){if(submit){submit.disabled=false;submit.textContent=editTransferId?'บันทึกการแก้ไข':'ยืนยันการโอน'}toast((editTransferId?'แก้ไขการโอนไม่สำเร็จ: ':'บันทึกการโอนไม่สำเร็จ: ')+err.message)}
 }
 async function delTransfer(transferId){
   if(!transferId){toast('ไม่พบรหัสรายการโอน');return}
@@ -155,7 +167,7 @@ function billForm(gid,bid=''){
   let selected=[];try{selected=JSON.parse(old?.participantIds||'[]')}catch(e){}
   const mode=old?.splitMode||(selected.length?'names':'count');
   const count=Number(old?.splitCount||selected.length||2);
-  billDraft=bid?rows('BillItems').filter(x=>x.billId===bid).map(x=>({id:x.id,name:x.description,amount:Number(x.amount)||0})):[];
+  billDraft=bid?rows('BillItems').filter(x=>x.billId===bid).map(x=>({id:x.id,name:x.description,amount:Number(x.amount)||0,sourceTransactionId:x.sourceTransactionId||''})):[];
   openModal(bid?'แก้ไขบิล':'เพิ่มบิล',`<form onsubmit="submitBillItems(event,'${gid||''}','${bid}')">
   <div class="field"><label>ชื่อบิล</label><input id="billTitle" required value="${esc(old?.title||'บิลค่าใช้จ่าย')}" placeholder="เช่น ค่าอาหารวันนี้"></div>
   <div class="field"><label>วันที่</label><input id="billDate" type="date" value="${esc(old?.date||today())}" required></div>
@@ -163,9 +175,32 @@ function billForm(gid,bid=''){
   <div id="billCountMode" class="field" style="display:${mode==='count'?'block':'none'}"><label>จำนวนคนที่หาร</label><input id="billSplitCount" type="number" min="1" max="100" step="1" value="${count}"></div>
   <div id="billNamesMode" class="field" style="display:${mode==='names'?'block':'none'}"><div class="small muted">เลือกเพื่อนที่ร่วมจ่าย (เลือกได้หลายคน)</div>${mem.length?`<div class="list">${mem.map(m=>`<label class="item"><input type="checkbox" class="bill-member" value="${esc(m.id)}" ${selected.includes(m.id)?'checked':''} style="width:20px;min-height:20px">${esc(m.name)}</label>`).join('')}</div>`:`<div class="empty">ยังไม่มีรายชื่อเพื่อนในกลุ่มนี้</div>`}<div class="small muted" id="billPeopleCount"></div></div>
   <div class="field"><label>ใครเป็นคนจ่าย (ถ้ามี)</label><select id="billPayer"><option value="">ไม่ระบุ</option>${mem.map(m=>`<option value="${esc(m.id)}" ${old?.payerMemberId===m.id?'selected':''}>${esc(m.name)}</option>`).join('')}</select></div>
-  <div class="panel" style="padding:14px;margin:14px 0"><b>รายการค่าใช้จ่าย</b><div class="field"><label>ชื่อรายการ</label><input id="billItemName" placeholder="เช่น ข้าว น้ำ เสื้อผ้า"></div><div class="field"><label>จำนวนเงิน (บาท)</label><input id="billItemAmount" type="number" min="0.01" step="0.01" placeholder="เช่น 100"></div><button type="button" class="btn secondary" style="width:100%" onclick="addBillDraftItem()">＋ เพิ่มรายการ</button><div id="billDraftList" style="margin-top:12px"></div><div class="item"><b class="grow">ยอดรวมทั้งหมด</b><b id="billDraftTotal">฿0.00</b></div></div>
+  <div class="panel" style="padding:14px;margin:14px 0"><b>เลือกจากรายการรายจ่ายที่บันทึกไว้ (ไม่บังคับ)</b><div class="small muted">เลือกค่าใช้จ่ายของวันที่ในบิลมาใส่ให้อัตโนมัติได้ หรือจะข้ามส่วนนี้แล้วกรอกเองก็ได้</div><div id="billExpensePicker" style="margin-top:10px"></div></div>
+  <div class="panel" style="padding:14px;margin:14px 0"><b>เพิ่มรายการเอง (ไม่บังคับ)</b><div class="field"><label>ชื่อรายการ</label><input id="billItemName" placeholder="เช่น ข้าว น้ำ เสื้อผ้า"></div><div class="field"><label>จำนวนเงิน (บาท)</label><input id="billItemAmount" type="number" min="0.01" step="0.01" placeholder="เช่น 100"></div><button type="button" class="btn secondary" style="width:100%" onclick="addBillDraftItem()">＋ เพิ่มรายการ</button><div id="billDraftList" style="margin-top:12px"></div><div class="item"><b class="grow">ยอดรวมทั้งหมด</b><b id="billDraftTotal">฿0.00</b></div></div>
   <div class="field"><label>หมายเหตุ (ไม่บังคับ)</label><input id="billNote" value="${esc(old?.note||'')}"></div><button class="btn" id="billSubmitBtn" style="width:100%">บันทึกบิล</button></form>`);
-  document.querySelectorAll('.bill-member').forEach(x=>x.addEventListener('change',updateBillPeopleCount));renderBillDraft();
+  document.querySelectorAll('.bill-member').forEach(x=>x.addEventListener('change',updateBillPeopleCount));renderBillDraft();renderBillExpensePicker();
+  $('#billDate').addEventListener('change',renderBillExpensePicker);
+}
+function renderBillExpensePicker(){
+  const el=$('#billExpensePicker');if(!el)return;
+  const date=$('#billDate')?.value||today();
+  const expenses=rows('Transactions').filter(t=>t.type==='expense'&&String(t.date||'').slice(0,10)===date);
+  const already=new Set(billDraft.map(x=>String(x.sourceTransactionId||'' )).filter(Boolean));
+  if(!expenses.length){el.innerHTML='<div class="empty" style="padding:10px">วันนี้ยังไม่มีรายการรายจ่ายที่บันทึกไว้ หรือเลือกวันที่อื่นได้</div>';return;}
+  el.innerHTML=`<div class="small muted" style="margin-bottom:8px">รายการรายจ่ายวันที่ ${esc(date)} · เลือกได้หลายรายการ</div><div class="list">${expenses.map(t=>{const used=already.has(String(t.id));return `<label class="item" style="align-items:center"><input type="checkbox" class="bill-expense-source" value="${esc(t.id)}" ${used?'checked disabled':''} style="width:20px;min-height:20px"><span class="grow"><b>${esc(catName(t.categoryId))}</b><span class="small muted" style="display:block">${esc(t.note||walletName(t.walletId))}</span></span><b>${fmt(t.amount)}</b></label>`}).join('')}</div><button type="button" class="btn secondary" style="width:100%;margin-top:10px" onclick="addSelectedExpensesToBill()">＋ เพิ่มรายการที่เลือกลงบิล</button>`;
+}
+function addSelectedExpensesToBill(){
+  const selected=[...document.querySelectorAll('.bill-expense-source:checked:not(:disabled)')].map(x=>x.value);
+  if(!selected.length)return toast('เลือกรายจ่ายที่ต้องการเพิ่มก่อน');
+  let added=0;
+  selected.forEach(tid=>{
+    const t=rows('Transactions').find(x=>x.id===tid);if(!t||t.type!=='expense')return;
+    if(billDraft.some(x=>String(x.sourceTransactionId||'')===String(tid)))return;
+    const cat=catName(t.categoryId),desc=(t.note||cat||'รายจ่าย').trim();
+    billDraft.push({id:id(),name:desc,amount:Number(t.amount)||0,sourceTransactionId:String(t.id)});
+    added++;
+  });
+  renderBillDraft();renderBillExpensePicker();if(added)toast(`เพิ่ม ${added} รายการจากรายจ่ายแล้ว`);
 }
 function toggleBillSplitMode(){const mode=document.querySelector('input[name="billSplitMode"]:checked')?.value||'count';$('#billCountMode').style.display=mode==='count'?'block':'none';$('#billNamesMode').style.display=mode==='names'?'block':'none';}
 
@@ -186,7 +221,7 @@ async function submitBillItems(e,gid,bid){
     await save('Bills',b,{silent:true});
     const oldItems=rows('BillItems').filter(x=>x.billId===b.id);
     for(const x of oldItems){const r=await api('mutate',{table:'BillItems',op:'delete',id:x.id});if(!r.ok)throw Error(r.error||'ลบรายการเดิมไม่สำเร็จ');state.data.BillItems=rows('BillItems').filter(z=>z.id!==x.id);}
-    const newItems=billDraft.map(x=>({id:x.id||id(),billId:b.id,description:x.name,amount:Number(x.amount),memberShares:JSON.stringify(selected.map(memberId=>({memberId,amount:Number((Number(x.amount)/n).toFixed(2))})))}));
+    const newItems=billDraft.map(x=>({id:x.id||id(),billId:b.id,description:x.name,amount:Number(x.amount),memberShares:JSON.stringify(selected.map(memberId=>({memberId,amount:Number((Number(x.amount)/n).toFixed(2))}))),sourceTransactionId:x.sourceTransactionId||''}));
     for(const x of newItems)await save('BillItems',x,{silent:true});
     localStorage.setItem('mf_cache',JSON.stringify(state.data));state.lastSync=new Date();closeModal();renderPage();toast(bid?'แก้ไขบิลแล้ว':'บันทึกบิลแล้ว');billDetails(b.id);
   }catch(x){toast('บันทึกไม่สำเร็จ: '+x.message);btn.disabled=false;btn.textContent='บันทึกบิล';}
