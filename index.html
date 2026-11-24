@@ -203,7 +203,7 @@ function budgetsPage(){let m=state.budgetMonth||monthNow(),a=rows('Budgets').fil
 function billsPage(){let groups=rows('BillGroups');return `<h1 class="title">บิลหารเงิน</h1>${billRemindersHtml()}<div class="actions"><button class="btn" onclick="billForm('')">＋ เพิ่มบิลทั่วไป</button><button class="btn secondary" onclick="groupForm()">＋ สร้างกลุ่มเพื่อน</button></div><div class="grid" style="margin-top:14px">${groups.map(g=>`<div class="panel"><div class="section">${esc(g.name)} <button class="btn" onclick="billForm('${g.id}')">＋ เพิ่มบิล</button></div><div class="small muted">${rows('BillMembers').filter(m=>m.groupId===g.id).length} สมาชิก · ${rows('Bills').filter(b=>b.groupId===g.id).length} บิล</div><div class="actions" style="margin-top:12px"><button class="btn secondary" onclick="memberForm('${g.id}')">เพิ่มเพื่อน</button><button class="btn ghost" onclick="groupDetails('${g.id}')">สมาชิก</button><button class="btn danger" onclick="del('BillGroups','${g.id}')">ลบกลุ่ม</button></div></div>`).join('')}</div>${groups.length?'':'<div class="empty">สร้างบิลทั่วไปได้โดยไม่ต้องสร้างกลุ่มหรือใส่ชื่อเพื่อน</div>'}<div class="section">บิลที่บันทึกไว้</div><div class="panel">${rows('Bills').slice().reverse().map(b=>`<div class="item"><div class="grow"><b>${esc(b.title)}</b><div class="small muted">${esc(b.date)} · ${esc(rows('BillGroups').find(g=>g.id===b.groupId)?.name||'')}</div><div class="small muted">${(rows('BillItems').filter(i=>i.billId===b.id)).length} รายการ · ${Number(b.splitCount||0)} คน</div></div><b>${fmt(b.fullTotal||b.total)}</b><button class="btn ghost" onclick="billDetails('${b.id}')">เปิด</button><button class="btn danger" onclick="del('Bills','${b.id}')">ลบ</button></div>`).join('')||'<div class="empty">ยังไม่มีบิล</div>'}</div>`}
 function reconcilePage(){return `<h1 class="title">ตรวจสอบยอดบัญชี</h1><p class="muted">เปรียบเทียบยอดตามระบบกับยอดเงินจริงที่คุณกรอกจากธนาคาร</p><button class="btn" onclick="reconcileForm()">＋ ตรวจสอบยอดใหม่</button><div class="panel" style="margin-top:14px">${rows('BankReconciliation').slice().reverse().map(x=>`<div class="item"><div class="grow"><b>${esc(walletName(x.walletId))}</b><div class="small muted">${esc(x.date)}</div><div class="small">ระบบ ${fmt(x.systemBalance)} · จริง ${fmt(x.actualBalance)} ${x.note?'· '+esc(x.note):''}</div></div><div style="display:grid;gap:6px;justify-items:end"><b class="${Math.abs(Number(x.difference))<0.005?'positive':'negative'}">${fmt(x.difference)}</b><div class="actions"><button class="btn ghost" onclick="reconcileForm('${x.id}')">แก้ไข</button><button class="btn danger" onclick="del('BankReconciliation','${x.id}')">ลบ</button></div></div></div>`).join('')||'<div class="empty">ยังไม่มีประวัติการตรวจสอบ</div>'}</div>`}
 function reportsPage(){let t=txTotals(),cats={};rows('Transactions').filter(x=>x.type==='expense').forEach(x=>cats[x.categoryId]=(cats[x.categoryId]||0)+Number(x.amount));return `<h1 class="title">รายงานการเงิน</h1><div class="grid"><div class="metric"><span class="muted small">รายรับสะสม</span><strong class="positive">${fmt(rows('Transactions').filter(x=>x.type==='income').reduce((a,x)=>a+Number(x.amount),0))}</strong></div><div class="metric"><span class="muted small">รายจ่ายสะสม</span><strong class="negative">${fmt(rows('Transactions').filter(x=>x.type==='expense').reduce((a,x)=>a+Number(x.amount),0))}</strong></div></div><div class="section">ค่าใช้จ่ายตามหมวดหมู่</div><div class="panel">${Object.entries(cats).sort((a,b)=>b[1]-a[1]).map(([k,v])=>`<div class="item"><div class="grow">${esc(catName(k))}</div><b>${fmt(v)}</b></div>`).join('')||'<div class="empty">ไม่มีข้อมูล</div>'}</div><div class="section">ส่งออกข้อมูล</div><button class="btn secondary" onclick="exportCSV()">ดาวน์โหลดธุรกรรม CSV</button>`}
-function settingsPage(){return `<h1 class="title">ตั้งค่า</h1><div class="panel"><div class="section">การเชื่อมต่อ</div><div class="small muted">Apps Script URL</div><div style="overflow-wrap:anywhere">${esc(state.api)}</div><div class="actions" style="margin-top:12px"><button class="btn secondary" onclick="refresh()">ซิงค์ข้อมูล</button><button class="btn ghost" onclick="changeApi()">เปลี่ยน URL</button></div><div class="section">ธีม</div><button class="btn secondary" onclick="toggleTheme()">สลับ Light / Dark Mode</button><div class="section">สีภายในแอป</div><p class="small muted">เลือกสีที่ชอบ สีจะเปลี่ยนปุ่ม ไอคอน แถบเมนู และกราฟ โดยไม่กระทบข้อมูล</p><div class="actions" style="gap:10px;flex-wrap:wrap">${Object.entries(accents).map(([k,a])=>`<button class="btn ${state.accent===k?'':'ghost'}" style="background:${state.accent===k?a.main:'transparent'};color:${state.accent===k?'#fff':'var(--text)'};border:2px solid ${a.main}" onclick="setAccent('${k}')"><span style="display:inline-block;width:12px;height:12px;border-radius:50%;background:${a.main};vertical-align:middle;margin-right:5px"></span>${a.name}</button>`).join('')}</div><div class="section">ข้อมูลสำรอง</div><button class="btn secondary" onclick="backup()">ส่งออกข้อมูลทั้งหมด JSON</button><span class="small muted">โหมดไม่ใช้รหัสผ่าน</span></div><p class="small muted">MONEY FLOW ${'v1.5.1-boot-fix'} · ข้อมูลหลักเก็บใน Google Sheets</p>`}
+function settingsPage(){return `<h1 class="title">ตั้งค่า</h1><div class="panel"><div class="section">การเชื่อมต่อ</div><div class="small muted">Apps Script URL</div><div style="overflow-wrap:anywhere">${esc(state.api)}</div><div class="actions" style="margin-top:12px"><button class="btn secondary" onclick="refresh()">ซิงค์ข้อมูล</button><button class="btn ghost" onclick="changeApi()">เปลี่ยน URL</button></div><div class="section">ธีม</div><button class="btn secondary" onclick="toggleTheme()">สลับ Light / Dark Mode</button><div class="section">สีภายในแอป</div><p class="small muted">เลือกสีที่ชอบ สีจะเปลี่ยนปุ่ม ไอคอน แถบเมนู และกราฟ โดยไม่กระทบข้อมูล</p><div class="actions" style="gap:10px;flex-wrap:wrap">${Object.entries(accents).map(([k,a])=>`<button class="btn ${state.accent===k?'':'ghost'}" style="background:${state.accent===k?a.main:'transparent'};color:${state.accent===k?'#fff':'var(--text)'};border:2px solid ${a.main}" onclick="setAccent('${k}')"><span style="display:inline-block;width:12px;height:12px;border-radius:50%;background:${a.main};vertical-align:middle;margin-right:5px"></span>${a.name}</button>`).join('')}</div><div class="section">ข้อมูลสำรอง</div><button class="btn secondary" onclick="backup()">ส่งออกข้อมูลทั้งหมด JSON</button><span class="small muted">โหมดไม่ใช้รหัสผ่าน</span></div><p class="small muted">MONEY FLOW ${'v1.5.2-instant-open'} · ข้อมูลหลักเก็บใน Google Sheets</p>`}
 function openModal(title,html){$('#modalTitle').textContent=title;$('#modalBody').innerHTML=html;$('#modal').classList.add('show')}function closeModal(){$('#modal').classList.remove('show')}
 function categoryManager(type='expense'){
   const cats=rows('Categories').filter(c=>c.type===type);
@@ -347,16 +347,38 @@ function reconcileForm(rid=''){let w=rows('Wallets');if(!w.length)return toast('
 function exportCSV(){let a=rows('Transactions'),header=['id','type','amount','category','wallet','date','note'];let csv=[header.join(','),...a.map(x=>[x.id,x.type,x.amount,catName(x.categoryId),walletName(x.walletId),x.date,x.note].map(v=>'"'+String(v??'').replace(/"/g,'""')+'"').join(','))].join('\n');download('money-flow-transactions.csv','\ufeff'+csv,'text/csv;charset=utf-8')}
 function backup(){download('money-flow-backup.json',JSON.stringify(state.data,null,2),'application/json')}function download(name,content,type){let a=document.createElement('a'),u=URL.createObjectURL(new Blob([content],{type}));a.href=u;a.download=name;a.click();URL.revokeObjectURL(u)}function changeApi(){let v=prompt('Google Apps Script Web App URL (ลงท้ายด้วย /exec)',state.api);if(v){state.api=v.trim();localStorage.setItem('mf_api',state.api);refresh()}}
 async function boot(){
-  if('serviceWorker'in navigator)navigator.serviceWorker.register('service-worker.js').catch(()=>{});
+  // Render the app shell immediately. Network access must never block the UI.
   document.body.classList.toggle('dark',state.theme==='dark');
-  let cached=localStorage.getItem('mf_cache');if(cached){try{state.data=JSON.parse(cached);tables.forEach(t=>state.data[t] ||= []);}catch(e){}}
-  if(!state.api){let v=prompt('วาง Google Apps Script Web App URL (ลงท้ายด้วย /exec)');if(v){state.api=v.trim();localStorage.setItem('mf_api',state.api)}}
-  if(state.data&&Object.keys(state.data).length){state.lastSync=null;renderShell();const syncLabel=document.querySelector('.sync');if(syncLabel)syncLabel.textContent='พร้อมใช้งาน · กำลังซิงค์ข้อมูล…';}
-  if(state.api){
-    try{await loadData();renderShell();if(pendingOps().length)toast('มีรายการรอซิงค์ '+pendingOps().length+' รายการ');}
-    catch(e){if(state.data&&Object.keys(state.data).length){const syncLabel=document.querySelector('.sync');if(syncLabel)syncLabel.textContent='ออฟไลน์ · แสดงข้อมูลล่าสุด';toast('เปิดข้อมูลในเครื่องแล้ว · ซิงค์ภายหลังได้')}else{$('#loginStatus').textContent=e.message;toast(e.message)}}
-  }else if(!state.data||!Object.keys(state.data).length){$('#loginStatus').textContent='ยังไม่ได้ตั้งค่า Apps Script URL · เปิดแอปใหม่เพื่อวาง URL'}
+  let cached=localStorage.getItem('mf_cache');
+  if(cached){try{state.data=JSON.parse(cached)||{};}catch(e){state.data={};}}
+  tables.forEach(t=>state.data[t] ||= []);
+  applyAccent();
+  renderShell();
+  const syncNodes=()=>document.querySelectorAll('.sync');
+  const setSync=(msg)=>syncNodes().forEach(n=>n.textContent=msg);
+  if('serviceWorker' in navigator){
+    navigator.serviceWorker.register('service-worker.js').catch(e=>console.warn('SW registration:',e));
+  }
+  if(!state.api){
+    setSync('ยังไม่ได้เชื่อมต่อ Google Sheets');
+    toast('กรุณาเข้า ตั้งค่า → เปลี่ยน URL เพื่อเชื่อมต่อข้อมูล');
+    return;
+  }
+  setSync('แสดงข้อมูลในเครื่อง · กำลังซิงค์เบื้องหลัง');
+  // Bound startup wait; the screen is already usable even if Apps Script is slow.
+  const startup=loadData();
+  const timeout=new Promise((_,reject)=>setTimeout(()=>reject(Error('การเชื่อมต่อใช้เวลานานเกินไป')),12000));
+  try{
+    await Promise.race([startup,timeout]);
+    renderShell();
+    setSync('ซิงค์ล่าสุด '+new Date().toLocaleTimeString('th-TH'));
+    if(pendingOps().length)toast('มีรายการรอซิงค์ '+pendingOps().length+' รายการ');
+  }catch(e){
+    console.warn('MONEY FLOW startup sync:',e);
+    setSync('ยังไม่ซิงค์ · ใช้ข้อมูลในเครื่องได้');
+    toast('เชื่อมต่อ Google Sheets ไม่สำเร็จ แต่ยังใช้หน้าจอและข้อมูลที่บันทึกในเครื่องได้');
+  }
 }
-window.addEventListener('online',flushQueue);
+window.addEventListener('online',()=>{flushQueue();refresh()});
 boot();
 </script></body></html>
